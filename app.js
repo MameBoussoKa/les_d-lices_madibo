@@ -30,8 +30,14 @@ app.get('/', (req, res) => {
   res.render('client', { products });
 });
 
-// API pour récupérer les commandes
+// API pour récupérer les commandes (ADMIN SEULEMENT)
 app.get('/api/commandes', (req, res) => {
+  // Vérifier l'authentification admin
+  const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
+  if (adminKey !== 'madibo2024') {
+    return res.status(403).json({ error: 'Accès refusé - Admin seulement' });
+  }
+  
   try {
     const commandes = JSON.parse(fs.readFileSync(commandesFile, 'utf-8'));
     res.json(commandes);
@@ -101,8 +107,29 @@ app.delete('/api/commandes/:id', (req, res) => {
   }
 });
 
-// Page admin
+// Page admin (avec mot de passe)
 app.get('/admin', (req, res) => {
+  const password = req.query.password;
+  if (password !== 'madibo2024') {
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Accès Admin</title><style>
+        body{font-family:Arial;max-width:400px;margin:100px auto;padding:20px;text-align:center}
+        input,button{padding:10px;margin:10px;font-size:16px}
+        button{background:#f97316;color:white;border:none;border-radius:5px;cursor:pointer}
+      </style></head>
+      <body>
+        <h2>🔐 Accès Administrateur</h2>
+        <form method="GET">
+          <input type="password" name="password" placeholder="Mot de passe" required>
+          <br><button type="submit">Accéder</button>
+        </form>
+      </body>
+      </html>
+    `);
+  }
+  
   try {
     const commandes = JSON.parse(fs.readFileSync(commandesFile, 'utf-8'));
     res.render('admin', { commandes, products });

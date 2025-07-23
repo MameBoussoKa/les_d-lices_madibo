@@ -22,14 +22,6 @@
                 <i class="fas fa-shopping-cart"></i>
                 Passer Commande
             </button>
-            <button id="pendingTab" class="tab-btn" onclick="showTab('pending')">
-                <i class="fas fa-clock"></i>
-                En cours <span id="pendingCount" class="count">0</span>
-            </button>
-            <button id="completedTab" class="tab-btn" onclick="showTab('completed')">
-                <i class="fas fa-check"></i>
-                Terminées <span id="completedCount" class="count">0</span>
-            </button>
         </nav>
 
         <!-- Order Form -->
@@ -116,45 +108,7 @@
             </div>
         </div>
 
-        <!-- Pending Orders -->
-        <div id="pendingSection" class="section">
-            <div class="form-container">
-                <h2>
-                    <i class="fas fa-clock"></i>
-                    Commandes en cours
-                </h2>
-                <div id="pendingOrders" class="orders-container">
-                    <div class="loading">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Chargement des commandes...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Completed Orders -->
-        <div id="completedSection" class="section">
-            <div class="form-container">
-                <h2>
-                    <i class="fas fa-check-circle"></i>
-                    Commandes terminées
-                </h2>
-                <div id="completedOrders" class="orders-container">
-                    <div class="loading">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Chargement des commandes...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Admin Link -->
-        <div style="text-align: center; margin-top: 30px;">
-            <a href="/admin" style="color: #f97316; text-decoration: none; font-weight: 600; font-size: 1.1rem;">
-                <i class="fas fa-cog"></i>
-                Espace Administrateur
-            </a>
-        </div>
     </div>
 
     <script src="/script.js"></script>
