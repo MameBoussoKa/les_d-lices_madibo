@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👨‍💼 Admin - Les délices de Madibo</title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👨‍💼</text></svg>">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>👨‍💼 Administration - Les délices de Madibo</h1>
+            <p>Gestion des commandes et suivi des ventes</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button id="pendingTab" class="tab-btn active" onclick="showTab('pending')">
+                <i class="fas fa-clock"></i>
+                En cours <span id="pendingCount" class="count">
+                    <%= commandes.filter(c => (c.status || 'En attente') !== 'Livrée').length %>
+                </span>
+            </button>
+            <button id="completedTab" class="tab-btn" onclick="showTab('completed')">
+                <i class="fas fa-check"></i>
+                Terminées <span id="completedCount" class="count">
+                    <%= commandes.filter(c => (c.status || 'En attente') === 'Livrée').length %>
+                </span>
+            </button>
+            <button id="statsTab" class="tab-btn" onclick="showTab('stats')">
+                <i class="fas fa-chart-bar"></i>
+                Statistiques
+            </button>
+        </nav>
+
+        <!-- Pending Orders -->
+        <div id="pendingSection" class="section active">
+            <div class="form-container">
+                <h2>
+                    <i class="fas fa-clock"></i>
+                    Commandes en cours de traitement
+                </h2>
+                <div id="pendingOrders" class="orders-container">
+                    <% 
+                    const pendingOrders = commandes.filter(c => (c.status || 'En attente') !== 'Livrée');
+                    if (pendingOrders.length === 0) { %>
+                        <div class="empty-state">
+                            <i class="fas fa-clock"></i>
+                            <p>Aucune commande en cours</p>
+                        </div>
+                    <% } else { %>
+                        <% pendingOrders.forEach(commande => { %>
+                        <div class="order-card">
+                            <div class="order-header">
+                                <div class="order-info">
+                                    <h3>👤 <%= commande.studentName || commande.nom %></h3>
+                                    <div class="timestamp">🕒 <%= commande.timestamp || new Date(commande.date).toLocaleString('fr-FR') %></div>
+                                </div>
+                                <span class="status-badge status-<%= ((commande.status || 'En attente').toLowerCase().replace(/\s+/g, '-').replace('é', 'e')) %>">
+                                    <%= commande.status || 'En attente' %>
+                                </span>
+                            </div>
+                            
+                            <div class="order-items">
+                                <% if (commande.items) { %>
+                                    <% Object.entries(commande.items).forEach(([item, quantity]) => { 
+                                        if (quantity > 0) { 
+                                            const productInfo = {
+                                                beignets: { name: 'Beignets', price: 100 },
+                                                croquettes: { name: 'Croquettes', price: 100 },
+                                                popCornes: { name: 'Pop-cornes', price: 100 }
+                                            };
+                                            const product = productInfo[item] || { name: item, price: 100 }; %>
+                                        <div class="order-item">
+                                            <span><strong><%= product.name %></strong></span>
+                                            <span><%= quantity %> × <%= product.price %> FCFA = <strong><%= quantity * product.price %> FCFA</strong></span>
+                                        </div>
+                                    <% } }) %>
+                                <% } else { %>
+                                    <div class="order-item">
+                                        <span><strong><%= commande.produit || 'Produit' %></strong></span>
+                                        <span>1 × 100 FCFA = <strong>100 FCFA</strong></span>
+                                    </div>
+                                <% } %>
+                            </div>
+                            
+                            <div class="order-total">
+                                💰 Total: <%= commande.total || 100 %> FCFA
+                            </div>
+                            
+                            <div class="order-actions">
+                                <select class="status-select" onchange="updateOrderStatus(<%= commande.id || Date.now() %>, this.value)">
+                                    <option value="En attente" <%= (commande.status || 'En attente') === 'En attente' ? 'selected' : '' %>>⏳ En attente</option>
+                                    <option value="En préparation" <%= (commande.status || 'En attente') === 'En préparation' ? 'selected' : '' %>>👨‍🍳 En préparation</option>
+                                    <option value="Prête" <%= (commande.status || 'En attente') === 'Prête' ? 'selected' : '' %>>✅ Prête</option>
+                                    <option value="Livrée" <%= (commande.status || 'En attente') === 'Livrée' ? 'selected' : '' %>>🚚 Livrée</option>
+                                </select>
+                                <button class="delete-btn" onclick="deleteOrder(<%= commande.id || Date.now() %>)" title="Supprimer la commande">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <% }) %>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Completed Orders -->
+        <div id="completedSection" class="section">
+            <div class="form-container">
+                <h2>
+                    <i class="fas fa-check-circle"></i>
+                    Commandes terminées
+                </h2>
+                <div id="completedOrders" class="orders-container">
+                    <% 
+                    const completedOrders = commandes.filter(c => (c.status || 'En attente') === 'Livrée');
+                    if (completedOrders.length === 0) { %>
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle"></i>
+                            <p>Aucune commande terminée</p>
+                        </div>
+                    <% } else { %>
+                        <% completedOrders.forEach(commande => { %>
+                        <div class="order-card completed">
+                            <div class="order-header">
+                                <div class="order-info">
+                                    <h3>👤 <%= commande.studentName || commande.nom %></h3>
+                                    <div class="timestamp">🕒 <%= commande.timestamp || new Date(commande.date).toLocaleString('fr-FR') %></div>
+                                </div>
+                                <span class="status-badge status-delivered">
+                                    🚚 Livrée
+                                </span>
+                            </div>
+                            
+                            <div class="order-items">
+                                <% if (commande.items) { %>
+                                    <% Object.entries(commande.items).forEach(([item, quantity]) => { 
+                                        if (quantity > 0) { 
+                                            const productInfo = {
+                                                beignets: { name: 'Beignets', price: 100 },
+                                                croquettes: { name: 'Croquettes', price: 100 },
+                                                popCornes: { name: 'Pop-cornes', price: 100 }
+                                            };
+                                            const product = productInfo[item] || { name: item, price: 100 }; %>
+                                        <div class="order-item">
+                                            <span><strong><%= product.name %></strong></span>
+                                            <span><%= quantity %> × <%= product.price %> FCFA = <strong><%= quantity * product.price %> FCFA</strong></span>
+                                        </div>
+                                    <% } }) %>
+                                <% } else { %>
+                                    <div class="order-item">
+                                        <span><strong><%= commande.produit || 'Produit' %></strong></span>
+                                        <span>1 × 100 FCFA = <strong>100 FCFA</strong></span>
+                                    </div>
+                                <% } %>
+                            </div>
+                            
+                            <div class="order-total">
+                                💰 Total: <%= commande.total || 100 %> FCFA
+                            </div>
+                            
+                            <div class="order-actions">
+                                <button class="delete-btn" onclick="deleteOrder(<%= commande.id || Date.now() %>)" title="Supprimer la commande">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <% }) %>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div id="statsSection" class="section">
+            <div class="form-container">
+                <h2>
+                    <i class="fas fa-chart-bar"></i>
+                    Statistiques des ventes
+                </h2>
+                
+                <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 20px; border-radius: 15px; text-align: center;">
+                        <div class="stat-number" style="font-size: 2.5rem; font-weight: 700; color: #92400e;"><%= commandes.length %></div>
+                        <div class="stat-label" style="color: #92400e; font-weight: 600;">Total Commandes</div>
+                    </div>
+                    
+                    <div class="stat-card" style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); padding: 20px; border-radius: 15px; text-align: center;">
+                        <div class="stat-number" style="font-size: 2.5rem; font-weight: 700; color: #065f46;">
+                            <%= commandes.reduce((sum, c) => sum + (c.total || 100), 0) %>
+                        </div>
+                        <div class="stat-label" style="color: #065f46; font-weight: 600;">Chiffre d'Affaires (FCFA)</div>
+                    </div>
+                    
+                    <div class="stat-card" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); padding: 20px; border-radius: 15px; text-align: center;">
+                        <div class="stat-number" style="font-size: 2.5rem; font-weight: 700; color: #1e40af;">
+                            <%= commandes.filter(c => (c.status || 'En attente') === 'Livrée').length %>
+                        </div>
+                        <div class="stat-label" style="color: #1e40af; font-weight: 600;">Commandes Livrées</div>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button onclick="location.reload()" style="background: #f97316; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                        <i class="fas fa-sync-alt"></i>
+                        Actualiser les données
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back to Client -->
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/" style="color: #f97316; text-decoration: none; font-weight: 600; font-size: 1.1rem;">
+                <i class="fas fa-arrow-left"></i>
+                Retour à l'interface client
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Utiliser le même script que la page client
+        let orders = <%- JSON.stringify(commandes) %>;
+        const products = {
+            beignets: { name: 'Beignets', price: 100 },
+            croquettes: { name: 'Croquettes', price: 100 },
+            popCornes: { name: 'Pop-cornes', price: 100 }
+        };
+
+        // Fonction pour changer d'onglet
+        function showTab(tabName) {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(tabName + 'Section').classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+
+        // Mise à jour du statut d'une commande
+        async function updateOrderStatus(orderId, newStatus) {
+            try {
+                const response = await fetch(`/api/commandes/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                
+                if (response.ok) {
+                    location.reload(); // Recharger la page pour voir les changements
+                } else {
+                    alert('Erreur lors de la mise à jour du statut');
+                }
+            } catch (error) {
+                alert('Erreur lors de la mise à jour du statut');
+            }
+        }
+
+        // Suppression d'une commande
+        async function deleteOrder(orderId) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette commande ?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/commandes/${orderId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    location.reload(); // Recharger la page
+                } else {
+                    alert('Erreur lors de la suppression');
+                }
+            } catch (error) {
+                alert('Erreur lors de la suppression');
+            }
+        }
+
+        // Auto-refresh toutes les 30 secondes
+        setInterval(() => {
+            location.reload();
+        }, 30000);
+    </script>
+
+    <style>
+        .status-en-attente { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; }
+        .status-en-preparation { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; }
+        .status-prete { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; }
+        .status-livree { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); color: #374151; }
+        .status-delivered { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); color: #374151; }
+    </style>
+</body>
+</html>
