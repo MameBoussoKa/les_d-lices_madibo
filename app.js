@@ -74,9 +74,9 @@ app.post('/commander', async (req, res) => {
   try {
     const { studentName, items, total } = req.body;
     
-    await pool.query(`
+    const result = await pool.query(`
       INSERT INTO commandes (student_name, items, total, timestamp)
-      VALUES ($1, $2, $3, $4)
+      VALUES ($1, $2, $3, $4) RETURNING id
     `, [
       studentName,
       JSON.stringify(items),
@@ -84,7 +84,11 @@ app.post('/commander', async (req, res) => {
       new Date().toLocaleString('fr-FR')
     ]);
 
-    res.json({ success: true, message: 'Commande reçue avec succès!' });
+    res.json({ 
+      success: true, 
+      message: 'Commande reçue avec succès!',
+      orderId: result.rows[0].id
+    });
   } catch (error) {
     console.error('Erreur DB:', error);
     res.status(500).json({ error: 'Erreur lors de l\'enregistrement de la commande' });
@@ -123,6 +127,73 @@ app.delete('/api/commandes/:id', async (req, res) => {
   } catch (error) {
     console.error('Erreur DB:', error);
     res.status(500).json({ error: 'Erreur lors de la suppression' });
+  }
+});
+
+// Page de statut de commande pour le client
+app.get('/commande/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'SELECT * FROM commandes WHERE id = $1', 
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).send('Commande non trouvée');
+    }
+    
+    const commande = result.rows[0];
+    commande.items = typeof commande.items === 'string' ? JSON.parse(commande.items) : commande.items;
+    
+    res.render('order-status', { commande, products });
+  } catch (error) {
+    console.error('Erreur DB:', error);
+    res.status(500).send('Erreur lors du chargement de la commande');
+  }
+});
+
+// Modifier une commande (client)
+app.put('/commande/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { items, total } = req.body;
+    
+    const result = await pool.query(
+      'UPDATE commandes SET items = $1, total = $2 WHERE id = $3 AND status = $4',
+      [JSON.stringify(items), total, id, 'En attente']
+    );
+    
+    if (result.rowCount > 0) {
+      res.json({ success: true, message: 'Commande modifiée avec succès!' });
+    } else {
+      res.status(400).json({ error: 'Impossible de modifier cette commande' });
+    }
+  } catch (error) {
+    console.error('Erreur DB:', error);
+    res.status(500).json({ error: 'Erreur lors de la modification' });
+  }
+});
+
+// Annuler une commande (client)
+app.delete('/commande/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'DELETE FROM commandes WHERE id = $1 AND status = $2',
+      [id, 'En attente']
+    );
+    
+    if (result.rowCount > 0) {
+      res.json({ success: true, message: 'Commande annulée avec succès!' });
+    } else {
+      res.status(400).json({ error: 'Impossible d\'annuler cette commande' });
+    }
+  } catch (error) {
+    console.error('Erreur DB:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'annulation' });
   }
 });
 

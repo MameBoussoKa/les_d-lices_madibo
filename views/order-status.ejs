@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍴 Statut de votre commande - Les délices de Madibo</title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍴</text></svg>">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>🍴 Les délices de Madibo</h1>
+            <p>Suivi de votre commande #<%= commande.id %></p>
+        </header>
+
+        <!-- Status Banner -->
+        <div class="status-banner status-<%= commande.status.toLowerCase().replace(/\s+/g, '-').replace('é', 'e') %>">
+            <h2>
+                <% if (commande.status === 'En attente') { %>
+                    <i class="fas fa-clock"></i> Commande en attente
+                <% } else if (commande.status === 'En préparation') { %>
+                    <i class="fas fa-utensils"></i> En préparation
+                <% } else if (commande.status === 'Prête') { %>
+                    <i class="fas fa-check-circle"></i> Prête à récupérer
+                <% } else { %>
+                    <i class="fas fa-truck"></i> Livrée
+                <% } %>
+            </h2>
+            <p>Commande passée le <%= commande.timestamp %></p>
+        </div>
+
+        <!-- Order Details -->
+        <div class="form-container">
+            <h3>👤 <%= commande.student_name %></h3>
+            
+            <div id="orderDetails">
+                <h4>📦 Détails de la commande</h4>
+                <div class="products-list">
+                    <% Object.entries(commande.items).forEach(([productKey, quantity]) => { 
+                        if (quantity > 0) { %>
+                    <div class="product-item">
+                        <div class="product-info">
+                            <h5>
+                                <% if (productKey === 'beignets') { %>🥯 Beignets
+                                <% } else if (productKey === 'croquettes') { %>🍿 Croquettes
+                                <% } else if (productKey === 'popCornes') { %>🍿 Pop-cornes
+                                <% } %>
+                            </h5>
+                            <p><strong><%= quantity %> x 100 FCFA = <%= quantity * 100 %> FCFA</strong></p>
+                        </div>
+                        <% if (commande.status === 'En attente') { %>
+                        <div class="quantity-controls">
+                            <button type="button" class="qty-btn minus" onclick="updateQuantity('<%= productKey %>', -1)">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <span class="quantity" id="qty-<%= productKey %>"><%= quantity %></span>
+                            <button type="button" class="qty-btn plus" onclick="updateQuantity('<%= productKey %>', 1)">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <% } else { %>
+                        <div class="quantity-display">
+                            <span class="quantity-final"><%= quantity %></span>
+                        </div>
+                        <% } %>
+                    </div>
+                    <% } 
+                    }); %>
+                </div>
+
+                <div class="total-section">
+                    <span class="total-label">
+                        <i class="fas fa-calculator"></i>
+                        Total à payer :
+                    </span>
+                    <span class="total-amount" id="totalAmount"><%= commande.total %> FCFA</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <% if (commande.status === 'En attente') { %>
+            <div class="action-buttons">
+                <button type="button" class="modify-btn" onclick="saveChanges()">
+                    <i class="fas fa-edit"></i>
+                    Modifier la commande
+                </button>
+                <button type="button" class="cancel-btn" onclick="cancelOrder()">
+                    <i class="fas fa-times"></i>
+                    Annuler la commande
+                </button>
+            </div>
+            <% } %>
+            
+            <div class="navigation-buttons">
+                <a href="/" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                    Nouvelle commande
+                </a>
+                <button type="button" class="refresh-btn" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i>
+                    Actualiser
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const orderId = <%= commande.id %>;
+        const products = {
+            beignets: { name: 'Beignets', price: 100 },
+            croquettes: { name: 'Croquettes', price: 100 },
+            popCornes: { name: 'Pop-cornes', price: 100 }
+        };
+
+        let currentItems = <%- JSON.stringify(commande.items) %>;
+
+        // Mise à jour des quantités
+        function updateQuantity(product, change) {
+            const currentQty = currentItems[product] || 0;
+            const newQty = Math.max(0, currentQty + change);
+            
+            currentItems[product] = newQty;
+            document.getElementById(`qty-${product}`).textContent = newQty;
+            
+            // Recalculer le total
+            const total = Object.entries(currentItems).reduce((sum, [prod, qty]) => {
+                return sum + (qty * products[prod].price);
+            }, 0);
+            
+            document.getElementById('totalAmount').textContent = total + ' FCFA';
+        }
+
+        // Sauvegarder les modifications
+        async function saveChanges() {
+            try {
+                const total = Object.entries(currentItems).reduce((sum, [prod, qty]) => {
+                    return sum + (qty * products[prod].price);
+                }, 0);
+
+                if (total === 0) {
+                    alert('Votre commande ne peut pas être vide!');
+                    return;
+                }
+
+                const response = await fetch(`/commande/${orderId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        items: currentItems,
+                        total: total
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    location.reload();
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            } catch (error) {
+                alert('❌ Erreur lors de la modification');
+            }
+        }
+
+        // Annuler la commande
+        async function cancelOrder() {
+            if (!confirm('Êtes-vous sûr de vouloir annuler cette commande ?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/commande/${orderId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    window.location.href = '/';
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            } catch (error) {
+                alert('❌ Erreur lors de l\'annulation');
+            }
+        }
+
+        // Auto-refresh toutes les 30 secondes pour le statut
+        setInterval(() => {
+            location.reload();
+        }, 30000);
+    </script>
+
+    <style>
+        .status-banner {
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 600px;
+            border-radius: 15px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .status-en-attente { 
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); 
+            color: #92400e; 
+        }
+        
+        .status-en-preparation { 
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); 
+            color: #1e40af; 
+        }
+        
+        .status-prete { 
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); 
+            color: #065f46; 
+        }
+        
+        .status-livree { 
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); 
+            color: #374151; 
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .modify-btn, .cancel-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modify-btn {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .modify-btn:hover {
+            background: #2563eb;
+        }
+
+        .cancel-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .cancel-btn:hover {
+            background: #dc2626;
+        }
+
+        .navigation-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .back-btn, .refresh-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn {
+            background: #6b7280;
+            color: white;
+        }
+
+        .back-btn:hover {
+            background: #4b5563;
+        }
+
+        .refresh-btn {
+            background: #f97316;
+            color: white;
+        }
+
+        .refresh-btn:hover {
+            background: #ea580c;
+        }
+
+        .quantity-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        .quantity-final {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+    </style>
+</body>
+</html>

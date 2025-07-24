@@ -132,9 +132,10 @@ async function submitOrder() {
         if (response.ok) {
             const data = await response.json();
             showMessage('Commande envoyée avec succès ! 🎉', 'success');
-            resetForm();
-            await loadOrders();
-            updateOrderCounts();
+            // Rediriger vers la page de statut
+            setTimeout(() => {
+                window.location.href = `/commande/${data.orderId}`;
+            }, 1500);
         } else {
             throw new Error('Erreur serveur');
         }
