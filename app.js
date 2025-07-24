@@ -1,14 +1,18 @@
+require('dotenv').config();
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json()); // Support pour JSON
+app.use(express.json());
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
 
-const commandesFile = path.join(__dirname, 'data', 'commandes.json');
+// Configuration PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/madibo_delices',
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
 
 // Configuration des produits
 const products = {
@@ -17,13 +21,27 @@ const products = {
     popCornes: { name: 'Pop-cornes', price: 100 }
 };
 
-// Initialisation du fichier de commandes s'il n'existe pas
-if (!fs.existsSync(path.dirname(commandesFile))) {
-  fs.mkdirSync(path.dirname(commandesFile), { recursive: true });
+// Initialisation de la base de données
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS commandes (
+        id SERIAL PRIMARY KEY,
+        student_name VARCHAR(255) NOT NULL,
+        items JSONB NOT NULL,
+        total INTEGER NOT NULL,
+        status VARCHAR(50) DEFAULT 'En attente',
+        created_at TIMESTAMP DEFAULT NOW(),
+        timestamp VARCHAR(100)
+      )
+    `);
+    console.log('✅ Base de données initialisée');
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation de la DB:', error);
+  }
 }
-if (!fs.existsSync(commandesFile)) {
-  fs.writeFileSync(commandesFile, JSON.stringify([], null, 2));
-}
+
+initDatabase();
 
 // Page de commande (client)
 app.get('/', (req, res) => {
@@ -31,7 +49,7 @@ app.get('/', (req, res) => {
 });
 
 // API pour récupérer les commandes (ADMIN SEULEMENT)
-app.get('/api/commandes', (req, res) => {
+app.get('/api/commandes', async (req, res) => {
   // Vérifier l'authentification admin
   const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
   if (adminKey !== 'madibo2024') {
@@ -39,76 +57,75 @@ app.get('/api/commandes', (req, res) => {
   }
   
   try {
-    const commandes = JSON.parse(fs.readFileSync(commandesFile, 'utf-8'));
-    res.json(commandes);
+    const result = await pool.query(
+      'SELECT * FROM commandes ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
   } catch (error) {
+    console.error('Erreur DB:', error);
     res.status(500).json({ error: 'Erreur lors de la lecture des commandes' });
   }
 });
 
-// Envoi de la commande (nouvelle version)
-app.post('/commander', (req, res) => {
+// Envoi de la commande
+app.post('/commander', async (req, res) => {
   try {
     const { studentName, items, total } = req.body;
     
-    const nouvelleCommande = {
-      id: Date.now(),
-      studentName: studentName,
-      items: items,
-      total: total,
-      date: new Date().toISOString(),
-      timestamp: new Date().toLocaleString('fr-FR'),
-      status: 'En attente'
-    };
-
-    const commandes = JSON.parse(fs.readFileSync(commandesFile, 'utf-8'));
-    commandes.unshift(nouvelleCommande);
-    fs.writeFileSync(commandesFile, JSON.stringify(commandes, null, 2));
+    await pool.query(`
+      INSERT INTO commandes (student_name, items, total, timestamp)
+      VALUES ($1, $2, $3, $4)
+    `, [
+      studentName,
+      JSON.stringify(items),
+      total,
+      new Date().toLocaleString('fr-FR')
+    ]);
 
     res.json({ success: true, message: 'Commande reçue avec succès!' });
   } catch (error) {
+    console.error('Erreur DB:', error);
     res.status(500).json({ error: 'Erreur lors de l\'enregistrement de la commande' });
   }
 });
 
 // Mise à jour du statut d'une commande
-app.put('/api/commandes/:id/status', (req, res) => {
+app.put('/api/commandes/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
     
-    const commandes = JSON.parse(fs.readFileSync(commandesFile, 'utf-8'));
-    const commandeIndex = commandes.findIndex(cmd => cmd.id == id);
+    const result = await pool.query(
+      'UPDATE commandes SET status = $1 WHERE id = $2',
+      [status, id]
+    );
     
-    if (commandeIndex !== -1) {
-      commandes[commandeIndex].status = status;
-      fs.writeFileSync(commandesFile, JSON.stringify(commandes, null, 2));
+    if (result.rowCount > 0) {
       res.json({ success: true });
     } else {
       res.status(404).json({ error: 'Commande non trouvée' });
     }
   } catch (error) {
+    console.error('Erreur DB:', error);
     res.status(500).json({ error: 'Erreur lors de la mise à jour' });
   }
 });
 
 // Suppression d'une commande
-app.delete('/api/commandes/:id', (req, res) => {
+app.delete('/api/commandes/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const commandes = JSON.parse(fs.readFileSync(commandesFile, 'utf-8'));
-    const nouvellesCommandes = commandes.filter(cmd => cmd.id != id);
-    
-    fs.writeFileSync(commandesFile, JSON.stringify(nouvellesCommandes, null, 2));
+    await pool.query('DELETE FROM commandes WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (error) {
+    console.error('Erreur DB:', error);
     res.status(500).json({ error: 'Erreur lors de la suppression' });
   }
 });
 
 // Page admin (avec mot de passe)
-app.get('/admin', (req, res) => {
+app.get('/admin', async (req, res) => {
   const password = req.query.password;
   if (password !== 'madibo2024') {
     return res.send(`
@@ -131,9 +148,10 @@ app.get('/admin', (req, res) => {
   }
   
   try {
-    const commandes = JSON.parse(fs.readFileSync(commandesFile, 'utf-8'));
-    res.render('admin', { commandes, products });
+    const result = await pool.query('SELECT * FROM commandes ORDER BY created_at DESC');
+    res.render('admin', { commandes: result.rows, products });
   } catch (error) {
+    console.error('Erreur DB:', error);
     res.render('admin', { commandes: [], products });
   }
 });

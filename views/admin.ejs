@@ -225,7 +225,11 @@
 
     <script>
         // Utiliser le même script que la page client
-        let orders = <%- JSON.stringify(commandes) %>;
+        let orders = <%- JSON.stringify(commandes.map(c => ({
+            ...c,
+            studentName: c.student_name,
+            items: typeof c.items === 'string' ? JSON.parse(c.items) : c.items
+        }))) %>;
         const products = {
             beignets: { name: 'Beignets', price: 100 },
             croquettes: { name: 'Croquettes', price: 100 },
