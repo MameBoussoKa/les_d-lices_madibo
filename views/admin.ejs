@@ -56,7 +56,7 @@
                         <div class="order-card">
                             <div class="order-header">
                                 <div class="order-info">
-                                    <h3>👤 <%= commande.studentName || commande.nom %></h3>
+                                    <h3>👤 <%= commande.student_name || commande.studentName || commande.nom %></h3>
                                     <div class="timestamp">🕒 <%= commande.timestamp || new Date(commande.date).toLocaleString('fr-FR') %></div>
                                 </div>
                                 <span class="status-badge status-<%= ((commande.status || 'En attente').toLowerCase().replace(/\s+/g, '-').replace('é', 'e')) %>">
@@ -129,7 +129,7 @@
                         <div class="order-card completed">
                             <div class="order-header">
                                 <div class="order-info">
-                                    <h3>👤 <%= commande.studentName || commande.nom %></h3>
+                                    <h3>👤 <%= commande.student_name || commande.studentName || commande.nom %></h3>
                                     <div class="timestamp">🕒 <%= commande.timestamp || new Date(commande.date).toLocaleString('fr-FR') %></div>
                                 </div>
                                 <span class="status-badge status-delivered">
